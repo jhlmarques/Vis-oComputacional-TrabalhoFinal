@@ -14,7 +14,7 @@ class CoffeeContourDetector:
     '''
     @showImageOutput('Pre-process')
     def _preprocessCoffeeHSVThreshold(self, image):
-        r_image = cv.GaussianBlur(image, (31,31), 1)
+        r_image = cv.GaussianBlur(image, (31,31), 15)
         return r_image
 
     '''
@@ -24,8 +24,8 @@ class CoffeeContourDetector:
     def _segmentCoffeeHSVThreshold(self, image):
         image = cv.cvtColor(image, cv.COLOR_BGR2HSV)
         # Regiões marrons
-        hsv_brown_max = (15, 150, 120)
-        hsv_brown_min = (0, 32, 0)
+        hsv_brown_max = (41, 189, 91)
+        hsv_brown_min = (0, 31, 0)
 
         r_image = cv.inRange(image, hsv_brown_min, hsv_brown_max)
 
@@ -42,7 +42,7 @@ class CoffeeContourDetector:
         #image = cv.GaussianBlur(image, (25, 25), 5)
 
         # Operações morfológicas
-        image = cv.morphologyEx(image, cv.MORPH_CLOSE, kernel=(5,5), iterations=40)
+        #image = cv.morphologyEx(image, cv.MORPH_CLOSE, kernel=(5,5), iterations=40)
         #image = cv.dilate(image, (9,9), iterations=9)
        # image = cv.erode(image, (3,3), iterations=3)
 
