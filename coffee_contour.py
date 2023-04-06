@@ -1,5 +1,6 @@
+import cv2
 import cv2 as cv
-import numpy as np
+from math import pi
 from decorators import showImageOutput
 
 '''
@@ -8,13 +9,13 @@ Detecta o contorno do café na imagem
 class CoffeeContourDetector:
     def __init__(self, image) -> None:
         self.original_image = image
-    
+        self.excentricity = 1.64
     '''
     Realiza pré-processamento da imagem para segmentação do café via thresholding
     '''
     @showImageOutput('Pre-process')
     def _preprocessCoffeeHSVThreshold(self, image):
-        r_image = cv.GaussianBlur(image, (31,31), 1)
+        r_image = cv.GaussianBlur(image, (31,31), 15)
         return r_image
 
     '''
@@ -24,8 +25,8 @@ class CoffeeContourDetector:
     def _segmentCoffeeHSVThreshold(self, image):
         image = cv.cvtColor(image, cv.COLOR_BGR2HSV)
         # Regiões marrons
-        hsv_brown_max = (15, 150, 120)
-        hsv_brown_min = (0, 32, 0)
+        hsv_brown_max = (41, 189, 91)
+        hsv_brown_min = (0, 31, 0)
 
         r_image = cv.inRange(image, hsv_brown_min, hsv_brown_max)
 
@@ -42,7 +43,7 @@ class CoffeeContourDetector:
         #image = cv.GaussianBlur(image, (25, 25), 5)
 
         # Operações morfológicas
-        image = cv.morphologyEx(image, cv.MORPH_CLOSE, kernel=(5,5), iterations=40)
+        # image = cv.morphologyEx(image, cv.MORPH_CLOSE, kernel=(5,5), iterations=40)
         #image = cv.dilate(image, (9,9), iterations=9)
        # image = cv.erode(image, (3,3), iterations=3)
 
@@ -177,14 +178,83 @@ class CoffeeContourDetector:
     def getCoffeeContour(self):
         raise NotImplementedError
 
-    def getAreaByMoments(self, contour):
-        pass
+    '''
+    Obtém área do contorno pelo seu momento
+    '''
+    def _getContourArea(self, contour):
+        m = cv.moments(contour)
+        return m['m00']
 
-    def getCentroidByMoments(self, contour):
-        pass
+    '''
+    Obtém centróide do contorno pelo seu momento
+    '''
+    def _getCentroid(self, contour):
+        m = cv.moments(contour)
+        cx = int(m['m10'] / m['m00'])
+        cy = int(m['m01'] / m['m00'])
+        return cx, cy
 
-    def calculateTeapotArea(self, contour):
-        pass
+    '''
+    Desenha elipse com os pontos do centroide
+    '''
+    @showImageOutput("Ellipse")
+    def _drawEllipse(self, centroid_points, horizontal_axis, vertical_axis):
+        image = self.original_image.copy()
+        image = cv2.circle(image, centroid_points["bottommost"], 0, (0, 0, 255), 30)
+        image = cv2.circle(image, centroid_points["centroid"], 0, (0, 0, 255), 30)
+        image = cv2.circle(image, centroid_points["leftmost"], 0, (0, 0, 255), 30)
+        image = cv2.circle(image, centroid_points["rightmost"], 0, (0, 0, 255), 30)
+        image = cv2.circle(image, centroid_points["topmost"], 0, (0, 0, 255), 30)
+        image = cv2.ellipse(image, centroid_points["bottommost"], (horizontal_axis, vertical_axis), 180, 0, 360, (0, 255, 255), 5)
+        return image
+
+
+    '''
+    Obtêm as coordenadas extremas do centróide com base no contorno
+    '''
+    def _getCentroidPoints(self, contour):
+        centroid = self._getCentroid(contour)
+
+        leftmost = tuple(contour[contour[:, :, 0].argmin()][0])
+        rightmost = tuple(contour[contour[:, :, 0].argmax()][0])
+        topmost = tuple(contour[contour[:, :, 1].argmin()][0])
+        bottommost = tuple(contour[contour[:, :, 1].argmax()][0])
+
+        leftmost_centroid = (leftmost[0], centroid[1])
+        rightmost_centroid = (rightmost[0], centroid[1])
+        topmost_centroid = (centroid[0], topmost[1])
+        bottommost_centroid = (centroid[0], bottommost[1])
+
+        return {
+            "centroid": centroid,
+            "leftmost": leftmost_centroid,
+            "rightmost": rightmost_centroid,
+            "topmost":topmost_centroid,
+            "bottommost": bottommost_centroid
+        }
+
+    '''
+    Pega a área do bule calculando por meio de uma elipse
+    '''
+    def _getTeapotArea(self, contour):
+        centroid_points = self._getCentroidPoints(contour)
+        horizontal_axis_left = centroid_points["centroid"][0] - centroid_points["leftmost"][0]
+        horizontal_axis_right = centroid_points["rightmost"][0] - centroid_points["centroid"][0]
+
+        # Seleciona o maior eixo horizontal, já que é uma estimativa melhor para a elipse,
+        # assumindo que ambos esses eixos estão dentro do contorno do café.
+
+        horizontal_axis = max(horizontal_axis_left, horizontal_axis_right)
+
+        # Calcula o eixo vertical utilizando a excentricidade calculada
+        vertical_axis = int(horizontal_axis*self.excentricity)
+        self._drawEllipse(centroid_points, horizontal_axis, vertical_axis)
+
+        teapot_area = (horizontal_axis * vertical_axis * pi)/2
+
+        return teapot_area
+
+
 
 
 
@@ -199,4 +269,23 @@ class CCDHSVThresholding(CoffeeContourDetector):
         image = self._segmentCoffeeHSVThreshold(image)
         image = self._postprocessCoffeeSegment(image)
         
-        return self._findCoffeeContour(image)  
+        return self._findCoffeeContour(image)
+
+    '''
+    Mostra a porcentagem da quantidade de café em relação ao bule
+    '''
+    @showImageOutput("Coffee percentage")
+    def getPercentage(self):
+        image = self.original_image.copy()
+        contour = self.getCoffeeContour()
+
+        teapot_area = self._getTeapotArea(contour)
+        coffee_area = self._getContourArea(contour)
+        percentage = coffee_area / teapot_area * 100
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(image, f'{percentage:.2f}%', (50, 150), font, 5, (0, 0, 255), 5, cv2.LINE_AA)
+        return image
+
+
+

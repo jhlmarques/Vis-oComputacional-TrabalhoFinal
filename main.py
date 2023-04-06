@@ -9,4 +9,5 @@ if __name__ == '__main__':
 
     # Abordagem por detecção do contorno do café e, após, do bule
     detector = CCDHSVThresholding(image)
-    detector.getCoffeeContour()
+    detector.getPercentage()
+
