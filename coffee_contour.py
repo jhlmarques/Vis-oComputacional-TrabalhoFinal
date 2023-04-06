@@ -177,6 +177,15 @@ class CoffeeContourDetector:
     def getCoffeeContour(self):
         raise NotImplementedError
 
+    def getAreaByMoments(self, contour):
+        pass
+
+    def getCentroidByMoments(self, contour):
+        pass
+
+    def calculateTeapotArea(self, contour):
+        pass
+
 
 
 
