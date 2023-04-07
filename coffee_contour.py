@@ -19,7 +19,7 @@ class CoffeeContourDetector:
     '''
     Obtém contornos do café
     '''
-    def _findCoffeeContour(self, image):
+    def _findCoffeeContours(self, image):
         contours, _ = cv.findContours(image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         self._drawCandidateContours(contours)
         return contours
@@ -168,8 +168,8 @@ class CCDHSVThresholding(CoffeeContourDetector):
 
         return image
 
-    def _findCoffeeContour(self, image):
-        contours = super()._findCoffeeContour(image)
+    def _findCoffeeContours(self, image):
+        contours = super()._findCoffeeContours(image)
 
         contours = self._filterContoursNonZeroArea(contours)
         #self._drawCandidateContours(contours)
@@ -185,9 +185,7 @@ class CCDHSVThresholding(CoffeeContourDetector):
         contours = self._filterContoursExtremitiesTangent(contours, 0.1)
         self._drawCandidateContours(contours)
 
-        r_cnt = self._chooseBestContourByWidth(contours)
-        self._drawCandidateContours([r_cnt])
-        return r_cnt
+        return contours
 
         
 
@@ -196,5 +194,9 @@ class CCDHSVThresholding(CoffeeContourDetector):
         image = self._preprocessCoffeeHSVThreshold(image)
         image = self._segmentCoffeeHSVThreshold(image)
         image = self._postprocessCoffeeSegment(image)
+        contours = self._findCoffeeContours(image)
+        cnt = self._chooseBestContourByWidth(contours)
+        self._drawCandidateContours([cnt])
         
-        return self._findCoffeeContour(image)  
+        return cnt  
+
