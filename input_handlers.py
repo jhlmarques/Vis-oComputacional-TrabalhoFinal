@@ -3,11 +3,10 @@ import numpy as np
 import cv2 as cv
 
 '''
-Obtém a imagem a ser usada como input para o programa
+Obtém dados de input do programa
 '''
-def getInputImageCommandLine():
-    allowed_extensions = ['.jpg', '.png']
-    
+def getInputCommandLine():
+
     # Obtém imagem via linha de comando
     parser = argparse.ArgumentParser(
         prog = 'CoffeeVision',
@@ -15,15 +14,22 @@ def getInputImageCommandLine():
     )
 
     parser.add_argument('filename')
+    parser.add_argument('-c','--chooseHSV', action='store_true')
     args = parser.parse_args()
     
+    return args
+
+def cmd_args_getInputImage(args):
+    allowed_extensions = ['.jpg', '.png']
     image_filename = args.filename
     _, ext = os.path.splitext(image_filename)
     if(ext not in allowed_extensions):
         raise ValueError('Tipos de extensão de arquivo suportadas: ' + ', '.join(allowed_extensions))
 
-    return cv.imdecode(np.fromfile(image_filename, dtype=np.uint8), cv.IMREAD_COLOR)
+    return cv.imdecode(np.fromfile(image_filename, dtype=np.uint8), cv.IMREAD_COLOR), image_filename
 
+def cmd_args_useKnownHSVThresholds(args):
+    return args.chooseHSV
 
 
 def chooseHSVThreshold(img):
@@ -39,7 +45,6 @@ def chooseHSVThreshold(img):
 
     # Create a window
     cv.namedWindow('trackbars', cv.WINDOW_NORMAL)
-    cv.namedWindow('image', cv.WINDOW_NORMAL)
 
 
     # create trackbars for color change
