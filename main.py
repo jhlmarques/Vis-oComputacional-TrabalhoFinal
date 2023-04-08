@@ -45,10 +45,11 @@ if __name__ == '__main__':
     contours = detector.getCoffeeContours()
     contours = detector.filterContoursNonZeroArea(contours)
     contours = detector.filterContoursExtension(contours, 0.6, 0.9)
-    contours = detector.filterContoursWidth(contours, 50, image.shape[1])
+    contours = detector.filterContoursWidth(contours, 500, image.shape[1])
     detector.showCandidateContours(contours)
+    contours = detector.getConvexHulls(contours)
     
     rectifier = CoffeeRectifier(pot)
     # for cnt in contours:
-    #     rectifier.drawUnrectified(image, cnt)
-    rectifier.getBestFittingContour(image, contours)
+    #     rectifier.drawPot(image, cnt)
+    rectifier.findBestFittingContour(image, contours)
