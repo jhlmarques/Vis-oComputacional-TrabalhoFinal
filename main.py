@@ -40,13 +40,15 @@ if __name__ == '__main__':
     pot = PotElliptical(12, 8, 2.5)
 
 
-    # Detecta café, retifica baseado no formato do bule e retifica
+    # Detecta café, retifica baseado no formato do bule calcula proporção entre áreas do bule e do café
     detector = CCDHSVThresholding(image, hsv_min, hsv_max)
     contours = detector.getCoffeeContours()
     contours = detector.filterContoursNonZeroArea(contours)
     contours = detector.filterContoursExtension(contours, 0.6, 0.9)
     contours = detector.filterContoursWidth(contours, 50, image.shape[1])
     detector.showCandidateContours(contours)
+    
     rectifier = CoffeeRectifier(pot)
-    for cnt in contours:
-        rectifier.drawUnrectified(image, cnt)
+    # for cnt in contours:
+    #     rectifier.drawUnrectified(image, cnt)
+    rectifier.getBestFittingContour(image, contours)
