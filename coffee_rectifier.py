@@ -1,5 +1,5 @@
 from pot import Pot
-from decorators import showImageOutput
+from visualization import showOutput, displayImage
 import cv2 as cv
 import numpy as np
 from math import atan
@@ -12,8 +12,8 @@ class CoffeeRectifier:
     def __init__(self, reference_pot : Pot) -> None:
         self.reference_pot = reference_pot
 
-    @showImageOutput('Unrectified')
-    def drawUnrectified(self, image, cnt):
+    @showOutput('Pots')
+    def drawPot(self, image, cnt):
         bottommost_idx = cnt[:,:,1].argmax()
         bottommost = tuple(cnt[bottommost_idx][0])
 
@@ -22,21 +22,6 @@ class CoffeeRectifier:
         rightmost_idx = cnt[:,:,0].argmax()
         rightmost = tuple(cnt[rightmost_idx][0])
 
-        # contours_bottom_left = cnt[bottommost_idx:leftmost_idx+1]
-        # contours_bottom_right = cnt[rightmost_idx:bottommost_idx+1]
-        # cv.drawContours(image, contours_bottom_left, -1, (255, 0, 0), thickness=30)
-        # cv.drawContours(image, contours_bottom_right, -1, (0, 255, 0), thickness=30)
-
-        # title = 'Bottom-left'
-        # if(image.shape[0] > 500 or image.shape[1] > 500):
-        #     aspect_ratio = image.shape[0]/image.shape[1]
-        #     resized = cv.resize(image, (500, int(500*aspect_ratio)))
-        #     cv.imshow(title, resized)
-        # else:
-        #     cv.imshow(title, image)
-        # cv.waitKey(0)
-
-        
         pixel_radius = (rightmost[0] - leftmost[0]) // 2
         pixel_cm_ratio = pixel_radius / self.reference_pot.basis_radius_cm
         center_x = (rightmost[0] - pixel_radius)
@@ -50,48 +35,85 @@ class CoffeeRectifier:
     '''
     Decide qual o melhor contorno baseado em quão bem ele se adequa às bordas da bule
     '''
-    @showImageOutput('Rotacionados')
-    def getBestFittingContour(self, image, contours):
+    def findBestFittingContour(self, image, contours):
 
-        # contours_bottom_left = cnt[bottommost_idx:leftmost_idx+1]
-        # contours_bottom_right = cnt[rightmost_idx:bottommost_idx+1]
-        # cv.drawContours(image, contours_bottom_left, -1, (255, 0, 0), thickness=30)
-        # cv.drawContours(image, contours_bottom_right, -1, (0, 255, 0), thickness=30)
-
-        # title = 'Bottom-left'
-        # if(image.shape[0] > 500 or image.shape[1] > 500):
-        #     aspect_ratio = image.shape[0]/image.shape[1]
-        #     resized = cv.resize(image, (500, int(500*aspect_ratio)))
-        #     cv.imshow(title, resized)
-        # else:
-        #     cv.imshow(title, image)
-        # cv.waitKey(0)
+        best_cnt = None
+        min_MSE = float("inf")
 
         for cnt in contours:
 
-            #self._drawImageRotatedToContour(cnt, image)
             cv.drawContours(image, [cnt], 0, (0, 0, 255), 5)
             cnt = self._rotateContour(cnt)
             cv.drawContours(image, [cnt], 0, (255, 0, 0), 5)
-           
+            
+            # Ideia: pegar pontos entre a extremidade esquerda e a direita
+            bottommost_idx = cnt[:,:,1].argmax()
+            bottommost = tuple(cnt[bottommost_idx][0])
+            leftmost_idx = cnt[:,:,0].argmin()
+            leftmost = tuple(cnt[leftmost_idx][0])
+            rightmost_idx = cnt[:,:,0].argmax()
+            rightmost = tuple(cnt[rightmost_idx][0])
+            
+            candidates = cnt[rightmost_idx:leftmost_idx+1]
+            for p in candidates:
+                cv.circle(image, p[0], 15, (0, 255, 255), -1)
+            
+            pixel_radius = (rightmost[0] - leftmost[0]) // 2
+            pixel_cm_ratio = pixel_radius / self.reference_pot.basis_radius_cm
 
+            center_x = (rightmost[0] - pixel_radius)
+            center_y = bottommost[1]
 
-            # # Assumindo-se que o ponto mais
-            # contours_bottom_left = cnt[bottommost_idx:leftmost_idx+1]
-            # contours_bottom_right = cnt[rightmost_idx:bottommost_idx+1]
-        return image            
+            # MSE?
+            sum_sq_radius_diff = 0
+            for p in candidates:
+                x = p[0][0]
+                y = p[0][1]
+                y_cm = (y - center_y) / pixel_cm_ratio
+                
+                r = self.reference_pot.getRadiusAtHeight(y_cm)
+                r_pixel = int(r * pixel_cm_ratio)
+                if x < center_x:
+                    expected_x = center_x - r_pixel
+                else:
+                    expected_x = center_x + r_pixel
+                
+                diff = expected_x - x
+                diff = diff / pixel_cm_ratio
+                sum_sq_radius_diff += diff**2
+                cv.circle(image, (expected_x, y), 15, (0, 255, 0), -1)
+
+            MSE = sum_sq_radius_diff / len(candidates)
+            print(MSE)
+            if MSE < min_MSE:
+                min_MSE = MSE
+                best_cnt = cnt
+
+        
+        cv.drawContours(image, [cnt], 0, (255, 50, 255), 15)
+        displayImage('Candidatos e Selecionado', image)
+
+        return best_cnt
 
     def _getContourAngle(self, cnt):
+        
         leftmost_idx = cnt[:,:,0].argmin()
-        leftmost = tuple(cnt[leftmost_idx][0])
+        left = tuple(cnt[leftmost_idx][0])
         rightmost_idx = cnt[:,:,0].argmax()
-        rightmost = tuple(cnt[rightmost_idx][0])
+        right = tuple(cnt[rightmost_idx][0])
+        
+        # bottommost_idx = cnt[:,:,1].argmax()
+        # leftmost_idx = cnt[:,:,0].argmin()
+        # left = tuple(cnt[bottommost_idx-1][0])
+        # rightmost_idx = cnt[:,:,0].argmax()
+        # right = tuple(cnt[bottommost_idx+1][0])
 
         # Assumindo-se um contorno suficientemente bom e até certo grau de inclinação,
         # Rotacionamos a imagem baseado na inclinação da reta que passa pelas duas
         # extremidades laterais
         #https://stackoverflow.com/questions/7953316/rotate-a-point-around-a-point-with-opencv
-        angle = atan((rightmost[1] - leftmost[1]) / (rightmost[0] - leftmost[0]))
+        angle = atan((-right[1] + left[1]) / (right[0] - left[0]))
+
         # Convert to degrees
         angle = angle * (180 / np.pi)
         return angle
@@ -138,7 +160,7 @@ class CoffeeRectifier:
 
 
 
-    @showImageOutput('Rotated')
+    @showOutput('Rotated')
     def _drawImageRotatedToContour(self, cnt, image):
 
         cv.drawContours(image, [cnt], 0, (0, 255, 50), 9)
@@ -153,8 +175,6 @@ class CoffeeRectifier:
 
         return image
 
-    def rectify(contour):
-        pass
 
 
 
