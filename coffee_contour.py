@@ -1,6 +1,6 @@
 import cv2 as cv
 import numpy as np
-from decorators import showImageOutput
+from visualization import showOutput
 
 # Momentos dos contornos podem ser utilizados para obter centróides, áreas...
 # Basicamente, são os descritores da forma.
@@ -16,7 +16,7 @@ class CoffeeContourDetector:
     def __init__(self, image) -> None:
         self.original_image = image
     
-    @showImageOutput('Original Image')
+    @showOutput('Original Image')
     def showOriginalImage(self):
         return self.original_image
 
@@ -24,14 +24,14 @@ class CoffeeContourDetector:
     Obtém contornos do café
     '''
     def _findCoffeeContours(self, image):
-        contours, _ = cv.findContours(image, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv.findContours(image, cv.RETR_EXTERNAL , cv.CHAIN_APPROX_SIMPLE)
         self.showCandidateContours(contours)
         return contours
 
     '''
     Obtém convex hull dos contornos
     '''
-    def _getConvexHulls(self, contours):
+    def getConvexHulls(self, contours):
         r_contours = []
         for cnt in contours:
             r_contours.append(cv.convexHull(cnt))
@@ -117,7 +117,7 @@ class CoffeeContourDetector:
     '''
     Desenha contornos candidatos
     '''
-    @showImageOutput('Contornos')
+    @showOutput('Contornos')
     def showCandidateContours(self, contours):
         image = self.original_image.copy()
         cv.drawContours(image, contours, -1, (255,0,0), thickness=7)
@@ -151,15 +151,15 @@ class CCDHSVThresholding(CoffeeContourDetector):
     '''
     Realiza pré-processamento da imagem para segmentação do café via thresholding
     '''
-    @showImageOutput('Pre-process')
+    @showOutput('Pre-process')
     def _preprocessCoffeeHSVThreshold(self, image):
-        r_image = cv.GaussianBlur(image, (31,31), 15)
+        r_image = cv.GaussianBlur(image, (31,31), 19)
         return r_image
 
     '''
     Obtém o segmento contendo o café usando thresholding de cores
     '''
-    @showImageOutput('HSV Thresholding')
+    @showOutput('HSV Thresholding')
     def _segmentCoffeeHSVThreshold(self, image, thresh_min, thresh_max):
         image = cv.cvtColor(image, cv.COLOR_BGR2HSV)
         r_image = cv.inRange(image, thresh_min, thresh_max)
@@ -168,7 +168,7 @@ class CCDHSVThresholding(CoffeeContourDetector):
     '''
     Realiza pós-processamento da imagem contendo o segmento do café
     '''
-    @showImageOutput('Post Process')
+    @showOutput('Post Process')
     def _postprocessCoffeeSegment(self, image):
         # Mais denoising
         #image = cv.medianBlur(image, 5)
@@ -180,11 +180,6 @@ class CCDHSVThresholding(CoffeeContourDetector):
        # image = cv.erode(image, (3,3), iterations=3)
 
         return image
-
-
-    def _findCoffeeContours(self, image):
-        contours = super()._findCoffeeContours(image)
-        return self._getConvexHulls(contours)
 
     def getCoffeeContours(self):
         image = self.original_image
