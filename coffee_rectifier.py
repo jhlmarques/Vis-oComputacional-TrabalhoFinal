@@ -35,7 +35,8 @@ class CoffeeRectifier:
     '''
     Decide qual o melhor contorno baseado em quão bem ele se adequa às bordas da bule
     '''
-    def findBestFittingContour(self, image, contours):
+    def findBestFittingContour(self, image, contours, rotate=True):
+        image = image.copy()
 
         best_cnt = None
         min_MSE = float("inf")
@@ -43,8 +44,9 @@ class CoffeeRectifier:
         for cnt in contours:
 
             cv.drawContours(image, [cnt], 0, (0, 0, 255), 5)
-            cnt = self._rotateContour(cnt)
-            cv.drawContours(image, [cnt], 0, (255, 0, 0), 5)
+            if rotate:
+                cnt = self._rotateContour(cnt)
+                cv.drawContours(image, [cnt], 0, (255, 0, 0), 5)
             
             # Ideia: pegar pontos entre a extremidade esquerda e a direita
             bottommost_idx = cnt[:,:,1].argmax()
@@ -90,7 +92,7 @@ class CoffeeRectifier:
                 best_cnt = cnt
 
         
-        cv.drawContours(image, [cnt], 0, (255, 50, 255), 15)
+        cv.drawContours(image, [best_cnt], 0, (255, 50, 255), 15)
         displayImage('Candidatos e Selecionado', image)
 
         return best_cnt
@@ -175,6 +177,27 @@ class CoffeeRectifier:
 
         return image
 
+    def calculateVolume(self, cnt):
+        leftmost = tuple(cnt[cnt[:,:,0].argmin()][0])
+        rightmost = tuple(cnt[cnt[:,:,0].argmax()][0])
+        topmost = tuple(cnt[cnt[:,:,1].argmax()][0])
+        bottommost = tuple(cnt[cnt[:,:,1].argmin()][0])
 
+        pixel_radius = (rightmost[0] - leftmost[0]) // 2
+        pixel_cm_ratio = pixel_radius / self.reference_pot.basis_radius_cm
+
+        max_y_pixel = topmost[1]
+        max_y_pixel_cnt = max_y_pixel - bottommost[1]
+        max_y_cm = max_y_pixel_cnt / pixel_cm_ratio
+
+        pot_volume = self.reference_pot.getFullVolume()
+        coffee_volume = self.reference_pot.getVolumeAtHeight(max_y_cm)
+        ratio = coffee_volume / pot_volume
+
+        print(f'Total volume: {pot_volume} cm3')
+        print(f'Coffee volume: {coffee_volume} cm3')
+        print(f'The pot is {ratio * 100}% full!')    
+        
+            
 
 

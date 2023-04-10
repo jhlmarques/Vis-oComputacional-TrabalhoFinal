@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from math import sqrt
+from scipy.integrate import quad
 import cv2 as cv
 import numpy as np
 
@@ -13,7 +14,7 @@ class Pot:
     basis_radius_cm : float
 
     def getRadiusAtHeight(self, y: int):
-        raise NotImplemented
+        raise NotImplementedError
 
     def drawPoints(
         self, image : np.array, center : np.array, pixel_cm_ratio : float, 
@@ -44,6 +45,13 @@ class Pot:
 
         except ValueError: # Y fora da elipse
             pass
+
+    def getFullVolume(self):
+        return self.getVolumeAtHeight(self.height_cm)
+
+    def getVolumeAtHeight(self, y):
+        I, err = quad(self.getRadiusAtHeight, 0, y)
+        return 2 * np.pi * I
 
 
 

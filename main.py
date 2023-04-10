@@ -50,6 +50,16 @@ if __name__ == '__main__':
     contours = detector.getConvexHulls(contours)
     
     rectifier = CoffeeRectifier(pot)
-    # for cnt in contours:
-    #     rectifier.drawPot(image, cnt)
-    rectifier.findBestFittingContour(image, contours)
+
+    best_contour_r = rectifier.findBestFittingContour(image, contours)
+    best_contour = rectifier.findBestFittingContour(image, contours, False)
+
+    output_image_r = image.copy()
+    output_image = image.copy()
+
+    print('Rotated:')
+    rectifier.calculateVolume(best_contour_r)
+    rectifier.drawPot(output_image_r, best_contour_r)
+    print('Unrotated:')
+    rectifier.calculateVolume(best_contour)
+    rectifier.drawPot(output_image, best_contour)
